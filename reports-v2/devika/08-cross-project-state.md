@@ -1,23 +1,23 @@
-# Devika：未认证跨项目 Agent 状态读取（POST /api/get-agent-state）
+# Devika: unauthenticated cross-project agent-state read via POST /api/get-agent-state
 
-## 描述
+## Description
 
-`POST /api/get-agent-state`（devika.py:114-120）按 `project_name` 返回任意项目的 agent 状态栈原文，无认证、无属主校验。状态中含 browser_session 的截图路径/URL、terminal_session 的命令与输出等运行时敏感数据。
+`POST /api/get-agent-state` (devika.py:114-120) returns any project's agent-state stack verbatim by `project_name`, with no authentication and no ownership check. The state includes runtime-sensitive data such as browser_session screenshot paths/URLs and terminal_session commands and output.
 
-## 影响
+## Impact
 
-任何能访问 1337 端口的网络客户端读取其他项目的 agent 状态：受害项目正在浏览的内网 URL、终端会话输出（可能含命令回显中的密钥/内部信息）、内部独白等。
+Any network client that can reach port 1337 reads other projects' agent state: internal URLs the victim project is browsing, terminal session output (which may contain secrets/internal information echoed by commands), internal monologue, etc.
 
 ## PoC
 
 ```bash
-# 前提：victim-project 存在 agent 状态（browser_session.url 指向内网、
-#        terminal_session.output 含 VICTIM-TERMINAL-SECRET-42）
+# Prerequisite: victim-project has agent state (browser_session.url points to an
+#               internal host; terminal_session.output contains VICTIM-TERMINAL-SECRET-42)
 curl -X POST http://127.0.0.1:1337/api/get-agent-state \
   -H "Content-Type: application/json" -d '{"project_name": "victim-project"}'
 ```
 
-## 执行结果
+## Execution result
 
 ```
 $ curl -X POST .../api/get-agent-state -d '{"project_name": "victim-project"}'
